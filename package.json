@@ -1,0 +1,22 @@
+{
+  "name": "zero-human-touch-pipeline",
+  "version": "1.0.0",
+  "description": "Fully automated end-to-end software delivery pipeline",
+  "main": "orchestrate.js",
+  "scripts": {
+    "start": "node orchestrate.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "install:browsers": "playwright install"
+  },
+  "keywords": ["automation", "pipeline", "jira", "github", "vercel", "playwright"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@octokit/rest": "^21.0.0",
+    "dotenv": "^16.4.5",
+    "node-cron": "^3.0.3",
+    "playwright": "^1.48.2",
+    "axios": "^1.7.5",
+    "node-mailgun": "^0.3.3"
+  }
+}
