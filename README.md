@@ -1,426 +1,168 @@
 # Zero Human Touch Pipeline
 
-A fully automated, end-to-end software delivery pipeline that transforms Jira stories into deployed web applications without any human intervention.
-
-## How It Works
-
-```
-Jira Story (with requirements.md)
-    ↓
-Stage 1: Poll Jira for ai-ready stories
-    ↓
-Stage 2: AI builds the web app
-    ↓
-Stage 3: Write & run unit tests (iterate until passing)
-    ↓
-Stage 4: Push to GitHub & create PR
-    ↓
-Stage 5: Deploy to Vercel & wait for live URL
-    ↓
-Stage 6: QA tests with Playwright
-    ↓
-Stage 7: Email bug report with screenshots
-    ↓
-Stage 8: Update Jira story to Done or Bug Reported
-```
-
-## Quick Start
-
-### Prerequisites
-
-- Python 3.9+
-- Node.js 16+
-- GitHub account with a repository
-- Jira Cloud instance with project
-- Vercel account
-- Playwright browsers installed
-- Email service (SendGrid, Resend, or SMTP)
-- GitHub CLI (`gh`) installed
-
-### Installation
-
-1. **Clone or create the pipeline directory:**
-
-   ```bash
-   cd "Zero Human Touch Pipeline"
-   cd pipeline
-   ```
-
-2. **Create Python virtual environment:**
-
-   ```bash
-   python -m venv venv
-   source venv/Scripts/activate  # Windows: venv\Scripts\activate
-   ```
-
-3. **Install Python dependencies:**
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Install Playwright browsers:**
-
-   ```bash
-   python -m playwright install
-   ```
-
-5. **Install Node dependencies (for any Node projects):**
-   ```bash
-   npm install
-   npx playwright install  # For JavaScript/Playwright tests
-   ```
-
-### Configuration
-
-1. **Copy environment template:**
-
-   ```bash
-   cp .env.example .env
-   ```
-
-2. **Edit `.env` with your credentials:**
-
-   ```env
-   # Jira
-   JIRA_URL=https://your-domain.atlassian.net
-   JIRA_USERNAME=your-email@example.com
-   JIRA_API_TOKEN=<get-from-https://id.atlassian.com/manage/api-tokens>
-   JIRA_PROJECT_KEY=YOUR_PROJECT_KEY
-
-   # GitHub
-   GITHUB_TOKEN=<github-personal-access-token>
-   GITHUB_REPO_OWNER=your-username
-   GITHUB_REPO_NAME=your-repo-name
-
-   # Vercel
-   VERCEL_TOKEN=<vercel-api-token>
-
-   # Email (choose one service)
-   EMAIL_SERVICE=sendgrid
-   SENDGRID_API_KEY=<your-key>
-   EMAIL_FROM=pipeline@example.com
-   EMAIL_TO=qa-reports@example.com
-
-   # Claude/AI
-   ANTHROPIC_API_KEY=<your-key>
-   ```
-
-3. **Authenticate with GitHub CLI:**
-   ```bash
-   gh auth login
-   ```
-
-### Running the Pipeline
-
-#### Option 1: Run Once (Manual)
-
-```bash
-python orchestrate.py
-```
-
-#### Option 2: Run on Schedule (Cron)
-
-```bash
-python scheduler.py
-```
-
-This will poll Jira every 5 minutes (configurable in `.env` via `CRON_INTERVAL`).
-
-#### Option 3: Windows Task Scheduler
-
-1. Open Task Scheduler
-2. Create Basic Task
-3. Set trigger: Repeat every 5 minutes
-4. Set action:
-   ```
-   Program: C:\path\to\venv\Scripts\python.exe
-   Arguments: C:\path\to\pipeline\scheduler.py
-   Start in: C:\path\to\pipeline
-   ```
-
-#### Option 4: Linux/Mac Cron
-
-```bash
-# Edit crontab
-crontab -e
-
-# Add line (runs every 5 minutes)
-*/5 * * * * cd /path/to/pipeline && /path/to/venv/bin/python scheduler.py >> /tmp/pipeline.log 2>&1
-```
-
-## Creating a Jira Story to Test
-
-1. **Create a new story in your Jira project:**
-   - **Title:** `[AI-PIPELINE] <short description>`
-   - **Label:** `ai-ready`
-   - **Status:** To Do
-
-2. **Create a `requirements.md` file:**
-
-   ```markdown
-   # Requirements — Simple Todo App
-
-   ## What to build
-
-   A single-page web application that lets a user manage a todo list.
-
-   ## Features
-
-   - Add a new todo item via a text input and a button
-   - Mark a todo as complete (strikethrough + visual indicator)
-   - Delete a todo item
-   - Show a count of remaining incomplete items
-   - Persist todos in localStorage
-
-   ## Tech
-
-   - Plain HTML, CSS, JavaScript — no framework
-   - Single file output preferred (index.html)
-   - Must work in Chrome without any build step
-
-   ## Acceptance criteria
-
-   - All 5 features work correctly
-   - No console errors
-   - Page is usable on mobile (375px wide)
-   ```
-
-3. **Attach `requirements.md` to the Jira story**
-
-4. **Step away from keyboard** - the pipeline will handle everything!
-
-## Pipeline Stages Explained
-
-### Stage 1: Jira Polling
-
-- Queries Jira for stories with `ai-ready` label in `To Do` status
-- Downloads `requirements.md` attachment
-- Transitions story to `In Progress`
-
-### Stage 2: Build
-
-- External agent (Claude Code, aider, Cursor) reads requirements
-- Builds working web app in output directory
-- Follows specified tech stack
-
-### Stage 3: Unit Tests
-
-- Detects test framework (Jest, pytest, etc.)
-- Writes meaningful unit tests
-- Runs tests in loop until all pass
-- Saves results to `test-results.txt`
-
-### Stage 4: GitHub
-
-- Initializes git repo
-- Creates feature branch: `feature/ISSUE-KEY-description`
-- Commits and pushes code
-- Opens Pull Request with Jira key in title
-
-### Stage 5: Vercel Deployment
-
-- Triggers Vercel deployment from branch
-- Polls deployment status every 10 seconds
-- Waits for `READY` state (max 5 minutes)
-- Performs health check on live URL
-
-### Stage 6: QA Testing
-
-- Opens deployed URL in Playwright browser
-- Tests each acceptance criterion
-- Captures console errors
-- Takes screenshots of key states
-- Generates bug report in Markdown
-
-### Stage 7: Email Report
-
-- Sends QA report to configured email
-- Attaches all screenshots
-- Includes pass/fail status and details
-
-### Stage 8: Jira Close
-
-- Transitions story to `Done` (if all tests pass)
-- Transitions to `Bug Reported` (if failures found)
-- Adds comment with deployment URL and summary
-
-## Logs
-
-Pipeline logs are written to:
-
-- `logs/YYYYMMDD.log` - Detailed logs with timestamps
-
-View live logs:
-
-```bash
-tail -f logs/*.log
-```
-
-## Output Structure
-
-```
-output/
-├── AI-1234/                          # Jira issue key
-│   ├── index.html                    # Built app files
-│   ├── app.js
-│   ├── style.css
-│   ├── test-results.txt             # Test output
-│   ├── qa/
-│   │   ├── bug-report.md            # QA findings
-│   │   ├── screenshot-01-initial.png
-│   │   └── screenshot-02-tests.png
-```
-
-## Error Handling
-
-The pipeline handles failures gracefully:
-
-- **Build fails:** Story moved to `Bug Reported`, Jira comment added
-- **Tests fail:** Loop continues, agent fixes code, retries tests
-- **Deployment fails:** Story moved to `Bug Reported`
-- **QA fails:** Report generated, email sent, story remains in appropriate state
-- **Any stage fails:** Jira updated with error message, pipeline stops
-
-**No silent failures.** Every failure is logged and Jira is updated.
-
-## Architecture
-
-### Files
-
-- `orchestrate.py` - Main pipeline orchestrator
-- `scheduler.py` - Cron job runner
-- `stages/stage_*.py` - Individual pipeline stages
-- `utils/` - Configuration, logging, API clients
-
-### Key Configuration
-
-- `utils/config.py` - Load from `.env`
-- `utils/logger.py` - Logging setup
-- `utils/jira_client.py` - Jira API integration
-
-## API Integrations
-
-### Jira REST API v3
-
-- Search issues with JQL
-- Download attachments
-- Transition issues
-- Add comments
-
-### GitHub API
-
-- Create branches and commits
-- Push to remote
-- Open pull requests
-
-### Vercel API
-
-- Trigger deployments
-- Poll deployment status
-- Extract live URLs
-
-### Playwright API
-
-- Browser automation
-- Screenshot capture
-- Console error capture
-- DOM interaction
-
-### Email Services
-
-- **SendGrid:** REST API
-- **Resend:** REST API
-- **SMTP:** Standard email protocol
-
-## Testing the Pipeline
-
-### Quick Test (5 minutes)
-
-1. Create a Jira story with simple requirements
-2. Run: `python orchestrate.py`
-3. Watch each stage complete
-4. Check Jira for final status
-
-### Full Test with Scheduler
-
-1. Run: `python scheduler.py`
-2. Leave running
-3. Create Jira stories on schedule
-4. Pipeline automatically processes them
-
-### Debug Mode
-
-View detailed logs during execution:
-
-```bash
-tail -f logs/*.log &
-python orchestrate.py
-```
-
-## Troubleshooting
-
-### Jira API errors
-
-- Verify API token is valid at https://id.atlassian.com/manage/api-tokens
-- Verify project key is correct
-- Check user has access to project
-
-### GitHub push fails
-
-- Run: `gh auth login`
-- Verify token has `repo` and `workflow` permissions
-- Verify repository exists and you have push access
-
-### Vercel deployment fails
-
-- Verify Vercel API token is valid
-- Ensure repository is connected to Vercel
-- Check GitHub workflow runs successfully
-
-### Playwright tests fail
-
-- Ensure browsers are installed: `python -m playwright install`
-- Check Firefox/Chromium/WebKit available in your OS
-
-### Email not received
-
-- Verify email configuration is correct
-- Check spam folder
-- Verify API keys have correct permissions
-
-## Contributing
-
-To extend the pipeline:
-
-1. Create new stage in `stages/stage_N_*.py`
-2. Import and call in `orchestrate.py`
-3. Add error handling
-4. Log progress with `logger.info()`
-5. Return structured result dict
-
-## Support
-
-For issues or questions:
-
-1. Check logs in `logs/` directory
-2. Review pipeline status in Jira
-3. Verify all API credentials in `.env`
-4. Run manual test: `python orchestrate.py`
-
-## Next Steps
-
-1. Set up `.env` with your credentials
-2. Create a test Jira story
-3. Run the pipeline manually: `python orchestrate.py`
-4. Once working, set up scheduler for continuous operation
-5. Record Loom video showing full end-to-end flow
-6. Submit for review
+An end-to-end automated software delivery pipeline that takes a Jira story from **To Do** to a live, QA-verified deployment — with zero human intervention.
 
 ---
 
-**Deadline:** 18th May
-**Submit:** Loom recording + GitHub repo link
-#   Z e r o - H u m a n - T o u c h - P i p e l i n e  
- #   Z e r o - H u m a n - T o u c h - P i p e l i n e  
- 
+## What It Does
+
+The pipeline polls Jira on a configurable schedule and, when it finds a new story, automatically:
+
+1. **Picks up the Jira story** — transitions it to In Progress and claims it so no duplicate runs occur
+2. **Builds the web application** — hands the requirements to an AI build agent (Claude) that generates the full codebase
+3. **Runs unit tests** — detects the project type (Node.js or Python) and runs the appropriate test suite
+4. **Pushes to GitHub** — initialises a git repo, creates a feature branch, commits the build, and opens a Pull Request via the GitHub API
+5. **Deploys to Vercel** — uploads the built files, triggers a deployment, polls until live, and runs a health check
+6. **Runs QA with Playwright** — navigates the live deployment, tests acceptance criteria extracted from the Jira story, captures screenshots, and generates a bug report
+7. **Sends an email report** — delivers the QA results and screenshots via SendGrid, Resend, or SMTP
+8. **Closes the Jira story** — transitions it to Done (or Bug Reported on failure) and posts a full summary comment
+
+---
+
+## Pipeline Flow
+
+```
+Jira Story (To Do)
+        ↓
+Stage 1: Poll Jira → claim story, extract requirements
+        ↓
+Stage 2: AI builds the web app
+        ↓
+Stage 3: Run unit tests
+        ↓
+Stage 4: Push to GitHub → open Pull Request
+        ↓
+Stage 5: Deploy to Vercel → wait for live URL
+        ↓
+Stage 6: Playwright QA → test acceptance criteria, screenshots
+        ↓
+Stage 7: Email QA report with attachments
+        ↓
+Stage 8: Close Jira story → Done or Bug Reported
+```
+
+---
+
+## Project Structure
+
+```
+pipeline/
+├── orchestrate.py          ← Pipeline coordinator
+├── scheduler.py            ← Cron runner
+├── stages/
+│   ├── stage_1_jira_poll.py
+│   ├── stage_2_build.py
+│   ├── stage_3_tests.py
+│   ├── stage_4_github.py
+│   ├── stage_5_vercel.py
+│   ├── stage_6_qa.py
+│   ├── stage_7_email.py
+│   └── stage_8_jira_close.py
+└── utils/
+    ├── jira_client.py      ← Jira REST API v3 wrapper
+    ├── config.py           ← Environment config loader
+    └── logger.py           ← Structured logger
+```
+
+Output for each processed story is written to:
+
+```
+output/
+└── AP-2/
+    ├── (built app files)
+    ├── test-results.txt
+    └── qa/
+        ├── bug-report.md
+        ├── screenshot-01-initial-load.png
+        └── screenshot-02-after-tests.png
+```
+
+---
+
+## Setup
+
+### 1. Clone the repo
+
+```bash
+git clone https://github.com/humailmajid-cmd/Zero-Human-Touch-Pipeline.git
+cd Zero-Human-Touch-Pipeline/pipeline
+```
+
+### 2. Install dependencies
+
+```bash
+pip install -r requirements.txt
+playwright install chromium
+```
+
+### 3. Configure environment
+
+```bash
+cp .env.example .env
+```
+
+Fill in `.env` — see the table below.
+
+### 4. Run
+
+```bash
+# Run once immediately
+python orchestrate.py
+
+# Or run on a schedule (polls every CRON_INTERVAL minutes)
+python scheduler.py
+```
+
+---
+
+## Configuration
+
+| Variable | Description |
+|---|---|
+| `JIRA_URL` | Base URL of your Atlassian instance — e.g. `https://your-org.atlassian.net` |
+| `JIRA_USERNAME` | Your Atlassian account email |
+| `JIRA_API_TOKEN` | API token from id.atlassian.com/manage-profile/security/api-tokens |
+| `JIRA_PROJECT_KEY` | Project key to poll — e.g. `AP` |
+| `GITHUB_TOKEN` | Personal access token with `repo` scope |
+| `GITHUB_REPO_OWNER` | GitHub username or organisation |
+| `GITHUB_REPO_NAME` | Target repository name |
+| `VERCEL_TOKEN` | Token from vercel.com → Settings → Tokens |
+| `VERCEL_TEAM_ID` | Team slug — leave blank for personal accounts |
+| `EMAIL_SERVICE` | `sendgrid`, `resend`, or `smtp` |
+| `SENDGRID_API_KEY` | SendGrid API key (if using SendGrid) |
+| `RESEND_API_KEY` | Resend API key (if using Resend) |
+| `SMTP_HOST / PORT / USER / PASSWORD` | SMTP credentials (if using smtp) |
+| `EMAIL_FROM` | Sender address |
+| `EMAIL_TO` | Recipient for QA reports |
+| `ANTHROPIC_API_KEY` | Claude API key for the AI build agent |
+| `CRON_INTERVAL` | How often to poll Jira in minutes (default: `5`) |
+
+---
+
+## How Stories Are Picked Up
+
+The pipeline queries Jira for issues in **"To Do"** status, ordered by creation date (oldest first). The moment it finds one it transitions it to **"In Progress"**, so concurrent scheduler runs never process the same story twice.
+
+On success → **Done** with a deployment URL comment.
+On failure → **Bug Reported** with the error details.
+
+---
+
+## API Integrations
+
+- **Jira REST API v3** — search, transition, comment
+- **GitHub REST API** — branches, commits, pull requests (no CLI dependency)
+- **Vercel API** — deployments, status polling
+- **Playwright** — browser automation, screenshots, console capture
+- **SendGrid / Resend / SMTP** — QA report email delivery
+
+---
+
+## Requirements
+
+- Python 3.10+
+- Git on PATH
+- A Jira Cloud project with stories in "To Do"
+- A GitHub repository for the generated code
+- A Vercel account for deployment
+- An email provider (SendGrid / Resend / SMTP)
